@@ -75,7 +75,10 @@ with detection_graph.as_default():
     sess = tf.compat.v1.Session(graph=detection_graph)
 
 def preprocess_image(image):
-    image = cv2.resize(image, (160, 160))
+    if selected_model == 'ResNet50':
+        image = cv2.resize(image, (32, 32))
+    else:
+        image = cv2.resize(image, (160, 160))
     image = img_to_array(image)
     image = np.expand_dims(image, axis=0)
     image = image / 255.0
