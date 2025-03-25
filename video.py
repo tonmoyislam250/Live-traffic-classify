@@ -7,9 +7,8 @@ import json
 import os
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
-from ultralytics import YOLO  # Import YOLOv8 model
+from ultralytics import YOLO
 
-# Load ResNet50 model
 model = load_model('models/Resnet50Model.h5')
 class_names = ['Speed limit (20km/h)', 'Speed limit (30km/h)', 'Speed limit (50km/h)', 'Speed limit (60km/h)', 
     'Speed limit (70km/h)', 'Speed limit (80km/h)', 'End of speed limit (80km/h)', 'Speed limit (100km/h)', 
@@ -20,11 +19,9 @@ class_names = ['Speed limit (20km/h)', 'Speed limit (30km/h)', 'Speed limit (50k
     'Pedestrians', 'Children crossing', 'Bicycles crossing', 'Beware of ice/snow', 'Wild animals crossing', 
     'End of all speed and passing limits', 'Turn right ahead', 'Turn left ahead', 'Ahead only', 
     'Go straight or right', 'Go straight or left', 'Keep right', 'Keep left', 'Roundabout mandatory', 
-    'End of no passing', 'End of no passing by vehicles over 3.5 metric tons'
-    ]  # Update with actual class names
+    'End of no passing', 'End of no passing by vehicles over 3.5 metric tons']
 
-# Load YOLOv8 model for sign detection
-yolo_model = YOLO('yolov8n.pt')  # Use a YOLOv8 pre-trained model
+yolo_model = YOLO('yolov8n.pt')
 
 def preprocess_image(image):
     image = cv2.resize(image, (32, 32))
@@ -33,16 +30,14 @@ def preprocess_image(image):
     image = image / 255.0
     return image
 
-# Function to detect traffic signs using YOLOv8
 def detect_signs_with_yolo(frame):
     if frame is None:
         print("Error: Failed to capture frame.")
         return None
     
-    results = yolo_model(frame)  # Detect objects in the frame
+    results = yolo_model(frame)
     return results
 
-# Streamlit App
 st.title("🚦 Smart Traffic Sign Detection and Classifier System")
 option = st.radio("Select Input", ["Upload Video", "Phone Camera Stream", "Laptop Webcam"])
 
@@ -58,21 +53,21 @@ if option == "Upload Video":
             ret, frame = cap.read()
             if not ret or frame is None:
                 print("Error: Frame capture failed.")
-                break  # Exit the loop if frame capture fails
+                break
 
             sign_detections = detect_signs_with_yolo(frame)
             if sign_detections:
                 for detection in sign_detections[0].boxes:
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])  # Get bounding box coordinates
+                    x1, y1, x2, y2 = map(int, detection.xywh[0])
                     cropped_sign = frame[y1:y2, x1:x2]
-                    if cropped_sign.size > 0:  # Check if the cropped sign is not empty
+                    if cropped_sign.size > 0:
                         preprocessed_image = preprocess_image(cropped_sign)
                         predictions = model.predict(preprocessed_image)
                         detected_class = class_names[np.argmax(predictions)]
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                     else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -85,11 +80,11 @@ elif option == "Phone Camera Stream":
             ret, frame = cap.read()
             if not ret or frame is None:
                 print("Error: Failed to capture frame from stream.")
-                break  # Exit if frame capture fails
+                break
             sign_detections = detect_signs_with_yolo(frame)
             if sign_detections:
                 for detection in sign_detections[0].boxes:
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])  # Get bounding box coordinates
+                    x1, y1, x2, y2 = map(int, detection.xywh[0])
                     cropped_sign = frame[y1:y2, x1:x2]
                     if cropped_sign.size > 0:
                         preprocessed_image = preprocess_image(cropped_sign)
@@ -98,7 +93,7 @@ elif option == "Phone Camera Stream":
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                     else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -110,11 +105,11 @@ elif option == "Laptop Webcam":
             ret, frame = cap.read()
             if not ret or frame is None:
                 print("Error: Failed to capture frame from webcam.")
-                break  # Exit if frame capture fails
+                break
             sign_detections = detect_signs_with_yolo(frame)
             if sign_detections:
-                for detection in sign_detections[0].boxes:  # Adjust based on YOLO result format
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])  # Get bounding box coordinates
+                for detection in sign_detections[0].boxes:
+                    x1, y1, x2, y2 = map(int, detection.xywh[0])
                     cropped_sign = frame[y1:y2, x1:x2]
                     if cropped_sign.size > 0:
                         preprocessed_image = preprocess_image(cropped_sign)
@@ -123,6 +118,6 @@ elif option == "Laptop Webcam":
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                     else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
                 frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()

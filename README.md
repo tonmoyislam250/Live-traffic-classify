@@ -15,38 +15,22 @@
 
 ## Usage
 1. Prepare the dataset:
-    - Download the GTSRB dataset from [here](https://benchmark.ini.rub.de/index.html).
+    - Download the GTSRB dataset from [here](https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370/published-archive.html).
+    - Additional links:
+      - [Final Trainned Images](https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370/GTSRB-Training_fixed.zip)
+      - [Final Test Images](https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370/GTSRB_Final_Test_Images.zip)
+      - [Final Test GT](https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370/GTSRB_Final_Test_GT.zip)
     - Place the dataset in the `GTSRB/` directory.
 
-2. Run data preparation scripts:
-    ```sh
-    python data_preparation/getData.py
-    python data_preparation/getFile.py
-    ```
-
-3. Perform image enhancement:
-    ```sh
-    python data_augmentation/enhancing_image_RRDB.py
-    python data_augmentation/processing_image.py
-    ```
-
-4. Train the models:
-    - Use the Jupyter notebooks in the `base/` directory to train baseline models.
-    - Use the `9_Fusion_model.ipynb` notebook to train the fusion model.
-
-5. Evaluate the models:
-    - Use the `Evaluation.ipynb` notebook to evaluate the performance of the models.
-
-6. Run the Streamlit app:
+2. For simple enhancement, use the files in the `simple_enhance` notebooks:
+    - There are two models: Resnet50 and CNN.
+3. For RRDM enhancement, use the `RRDM_enhance` folder to create and test models:
+    - Refer to the [ESRGAN repository](https://github.com/xinntao/ESRGAN).
+4. Run the Streamlit app with just Images:
     ```sh
     streamlit run streamlit.py
     ```
-
-## Results
-- The results of the experiments and model evaluations can be found in the `Evaluation.ipynb` notebook.
-
-## Contributing
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
-
-## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+5. Run the streamlit app with `Live Video Detection and Classification`
+    ```sh
+    streamlit run video.py
+    ```
