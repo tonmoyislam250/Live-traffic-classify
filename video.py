@@ -61,7 +61,6 @@ if option == "Upload Video":
                 break  # Exit the loop if frame capture fails
 
             sign_detections = detect_signs_with_yolo(frame)
-            # print(sign_detections)
             if sign_detections:
                 for detection in sign_detections[0].boxes:
                     x1, y1, x2, y2 = map(int, detection.xywh[0])  # Get bounding box coordinates
@@ -72,6 +71,8 @@ if option == "Upload Video":
                         detected_class = class_names[np.argmax(predictions)]
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    else:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
             st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -86,6 +87,18 @@ elif option == "Phone Camera Stream":
                 print("Error: Failed to capture frame from stream.")
                 break  # Exit if frame capture fails
             sign_detections = detect_signs_with_yolo(frame)
+            if sign_detections:
+                for detection in sign_detections[0].boxes:
+                    x1, y1, x2, y2 = map(int, detection.xywh[0])  # Get bounding box coordinates
+                    cropped_sign = frame[y1:y2, x1:x2]
+                    if cropped_sign.size > 0:
+                        preprocessed_image = preprocess_image(cropped_sign)
+                        predictions = model.predict(preprocessed_image)
+                        detected_class = class_names[np.argmax(predictions)]
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    else:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
             frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -109,5 +122,7 @@ elif option == "Laptop Webcam":
                         detected_class = class_names[np.argmax(predictions)]
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    else:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue rectangle for non-traffic signs
                 frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
