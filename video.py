@@ -6,8 +6,45 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
 
+
+
+st.set_page_config(page_title="🚦 Smart Traffic Sign Detection and Classifier System", layout="wide")
+
+
+st.markdown("""
+    <style>
+        body { background-color: transparent; }
+        .header { text-align: center; color: #22c55e; font-size: 38px; font-weight: bold; margin-bottom: 12px; }
+        .sub-header { text-align: center; color: #e5e7eb; font-size: 18px; margin-bottom: 40px; }
+        .card { background-color: #1f2937; padding: 25px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); color: #f9fafb; }
+        .predict-box { background-color: #111827; padding: 25px; border-radius: 12px; transition: transform 0.3s ease; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .predict-box:hover { transform: scale(1.02); }
+        .footer { text-align: center; color: #9ca3af; font-size: 14px; margin-top: 50px;}
+        select, input { color: black; }
+        audio { margin-top: 20px; }
+    </style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown("<div class='header'>🚦 Traffic Sign Classifier with Voice</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-header'>Upload a traffic sign image, get prediction with voice-assisted output.</div>", unsafe_allow_html=True)
+
+model_options = {
+    'ResNet50': 'models/ResNet50model.h5',
+    'CNN Model': 'models/cnn_model.h5',
+    "Simple Enhanced Resnet" :  'models/final_resnet_model.h5'
+}
+
+# Model selection
+selected_model = st.selectbox(
+    "🤖 Select Model",
+    list(model_options.keys())
+)
+
+model_path = model_options[selected_model]
+model = load_model(model_path)
 # Load the ResNet model
-model = load_model('models/Resnet50Model.h5')
+
 class_names = [
     'Speed limit (20km/h)', 'Speed limit (30km/h)', 'Speed limit (50km/h)', 'Speed limit (60km/h)', 
     'Speed limit (70km/h)', 'Speed limit (80km/h)', 'End of speed limit (80km/h)', 'Speed limit (100km/h)', 
@@ -26,6 +63,9 @@ PATH_TO_CKPT = 'models/frozen_inference_graph.pb'
 
 # Load the TensorFlow detection graph
 detection_graph = tf.Graph()
+config = tf.compat.v1.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.95  # Adjust the fraction as needed
 with detection_graph.as_default():
     od_graph_def = tf.compat.v1.GraphDef()
     with tf.io.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
@@ -35,7 +75,7 @@ with detection_graph.as_default():
     sess = tf.compat.v1.Session(graph=detection_graph)
 
 def preprocess_image(image):
-    image = cv2.resize(image, (32, 32))
+    image = cv2.resize(image, (160, 160))
     image = img_to_array(image)
     image = np.expand_dims(image, axis=0)
     image = image / 255.0
@@ -93,7 +133,7 @@ def detect_and_classify_signs(frame):
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
     return frame
 
-st.title("🚦 Smart Traffic Sign Detection and Classifier System")
+
 option = st.radio("Select Input", ["Upload Video", "Phone Camera Stream", "Laptop Webcam"])
 
 if option == "Upload Video":
