@@ -2,26 +2,37 @@ import cv2
 import numpy as np
 import streamlit as st
 import tempfile
-import requests
-import json
-import os
+import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
-from ultralytics import YOLO
 
+# Load the ResNet model
 model = load_model('models/Resnet50Model.h5')
-class_names = ['Speed limit (20km/h)', 'Speed limit (30km/h)', 'Speed limit (50km/h)', 'Speed limit (60km/h)', 
+class_names = [
+    'Speed limit (20km/h)', 'Speed limit (30km/h)', 'Speed limit (50km/h)', 'Speed limit (60km/h)', 
     'Speed limit (70km/h)', 'Speed limit (80km/h)', 'End of speed limit (80km/h)', 'Speed limit (100km/h)', 
-    'Speed limit (120km/h)', 'No passing', 'No passing for vehicles over 3.5 metric tons', 'Right-of-way at the next intersection', 
-    'Priority road', 'Yield', 'Stop', 'No vehicles', 'Vehicles over 3.5 metric tons prohibited', 'No entry', 
-    'General caution', 'Dangerous curve to the left', 'Dangerous curve to the right', 'Double curve', 
-    'Bumpy road', 'Slippery road', 'Road narrows on the right', 'Road work', 'Traffic signals', 
-    'Pedestrians', 'Children crossing', 'Bicycles crossing', 'Beware of ice/snow', 'Wild animals crossing', 
-    'End of all speed and passing limits', 'Turn right ahead', 'Turn left ahead', 'Ahead only', 
-    'Go straight or right', 'Go straight or left', 'Keep right', 'Keep left', 'Roundabout mandatory', 
-    'End of no passing', 'End of no passing by vehicles over 3.5 metric tons']
+    'Speed limit (120km/h)', 'No passing', 'No passing for vehicles over 3.5 metric tons', 
+    'Right-of-way at the next intersection', 'Priority road', 'Yield', 'Stop', 'No vehicles', 
+    'Vehicles over 3.5 metric tons prohibited', 'No entry', 'General caution', 'Dangerous curve to the left', 
+    'Dangerous curve to the right', 'Double curve', 'Bumpy road', 'Slippery road', 'Road narrows on the right', 
+    'Road work', 'Traffic signals', 'Pedestrians', 'Children crossing', 'Bicycles crossing', 'Beware of ice/snow', 
+    'Wild animals crossing', 'End of all speed and passing limits', 'Turn right ahead', 'Turn left ahead', 
+    'Ahead only', 'Go straight or right', 'Go straight or left', 'Keep right', 'Keep left', 'Roundabout mandatory', 
+    'End of no passing', 'End of no passing by vehicles over 3.5 metric tons'
+]
 
-yolo_model = YOLO('yolov8n.pt')
+# Path to the frozen inference graph
+PATH_TO_CKPT = 'models/frozen_inference_graph.pb'
+
+# Load the TensorFlow detection graph
+detection_graph = tf.Graph()
+with detection_graph.as_default():
+    od_graph_def = tf.compat.v1.GraphDef()
+    with tf.io.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
+        serialized_graph = fid.read()
+        od_graph_def.ParseFromString(serialized_graph)
+        tf.import_graph_def(od_graph_def, name='')
+    sess = tf.compat.v1.Session(graph=detection_graph)
 
 def preprocess_image(image):
     image = cv2.resize(image, (32, 32))
@@ -30,45 +41,77 @@ def preprocess_image(image):
     image = image / 255.0
     return image
 
-def detect_signs_with_yolo(frame):
-    if frame is None:
-        print("Error: Failed to capture frame.")
-        return None
-    
-    results = yolo_model(frame)
-    return results
+def detect_and_classify_signs(frame):
+    """Detect traffic signs with TensorFlow model and classify them with ResNet."""
+    # Prepare image for TensorFlow model
+    image_np = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    image_np_expanded = np.expand_dims(image_np, axis=0)
+
+    # Get input and output tensors from the graph
+    image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
+    detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
+    detection_scores = detection_graph.get_tensor_by_name('detection_scores:0')
+    detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
+    num_detections = detection_graph.get_tensor_by_name('num_detections:0')
+
+    # Run detection
+    (boxes, scores, classes, num) = sess.run(
+        [detection_boxes, detection_scores, detection_classes, num_detections],
+        feed_dict={image_tensor: image_np_expanded}
+    )
+
+    # Process detections
+    height, width = frame.shape[:2]
+    for i in range(int(num[0])):
+        score = scores[0, i]
+        if score > 0.5:  # Confidence threshold
+            # Convert normalized coordinates to pixel values
+            ymin, xmin, ymax, xmax = boxes[0, i]
+            x1 = int(xmin * width)
+            y1 = int(ymin * height)
+            x2 = int(xmax * width)
+            y2 = int(ymax * height)
+
+            if x1 < x2 and y1 < y2:
+                # Crop the detected region
+                cropped_sign = frame[y1:y2, x1:x2]
+
+                if cropped_sign.size > 0:
+                    # Preprocess for ResNet
+                    preprocessed_image = preprocess_image(cropped_sign)
+                    
+                    # Classify with ResNet
+                    predictions = model.predict(preprocessed_image)
+                    detected_class = class_names[np.argmax(predictions)]
+                    confidence = float(np.max(predictions))
+
+                    # Draw bounding box and classification
+                    if confidence > 0.7:  # Adjustable ResNet confidence threshold
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        label = f"{detected_class} ({confidence:.2f})"
+                        cv2.putText(frame, label, (x1, y1 - 10), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    return frame
 
 st.title("🚦 Smart Traffic Sign Detection and Classifier System")
 option = st.radio("Select Input", ["Upload Video", "Phone Camera Stream", "Laptop Webcam"])
 
 if option == "Upload Video":
     uploaded_video = st.file_uploader("Upload Video", type=["mp4", "avi"])
-
     if uploaded_video:
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
         cap = cv2.VideoCapture(tfile.name)
+        
+        frame_placeholder = st.empty()
 
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret or frame is None:
-                print("Error: Frame capture failed.")
                 break
-
-            sign_detections = detect_signs_with_yolo(frame)
-            if sign_detections:
-                for detection in sign_detections[0].boxes:
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])
-                    cropped_sign = frame[y1:y2, x1:x2]
-                    if cropped_sign.size > 0:
-                        preprocessed_image = preprocess_image(cropped_sign)
-                        predictions = model.predict(preprocessed_image)
-                        detected_class = class_names[np.argmax(predictions)]
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-                    else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            
+            frame = detect_and_classify_signs(frame)
+            frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
 elif option == "Phone Camera Stream":
@@ -76,24 +119,14 @@ elif option == "Phone Camera Stream":
     if st.button("Start Camera Stream") and stream_url:
         cap = cv2.VideoCapture(f'http://admin:admin@{stream_url.split("//")[-1]}')
         frame_placeholder = st.empty()
-        while True:
+        stop_button = st.button("Stop Stream")
+
+        while cap.isOpened():
             ret, frame = cap.read()
-            if not ret or frame is None:
-                print("Error: Failed to capture frame from stream.")
+            if not ret or frame is None or stop_button:
                 break
-            sign_detections = detect_signs_with_yolo(frame)
-            if sign_detections:
-                for detection in sign_detections[0].boxes:
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])
-                    cropped_sign = frame[y1:y2, x1:x2]
-                    if cropped_sign.size > 0:
-                        preprocessed_image = preprocess_image(cropped_sign)
-                        predictions = model.predict(preprocessed_image)
-                        detected_class = class_names[np.argmax(predictions)]
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-                    else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            
+            frame = detect_and_classify_signs(frame)
             frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -101,23 +134,16 @@ elif option == "Laptop Webcam":
     if st.button("Start Webcam"):
         cap = cv2.VideoCapture(0)
         frame_placeholder = st.empty()
-        while True:
+        stop_button = st.button("Stop Webcam")
+
+        while cap.isOpened():
             ret, frame = cap.read()
-            if not ret or frame is None:
-                print("Error: Failed to capture frame from webcam.")
+            if not ret or frame is None or stop_button:
                 break
-            sign_detections = detect_signs_with_yolo(frame)
-            if sign_detections:
-                for detection in sign_detections[0].boxes:
-                    x1, y1, x2, y2 = map(int, detection.xywh[0])
-                    cropped_sign = frame[y1:y2, x1:x2]
-                    if cropped_sign.size > 0:
-                        preprocessed_image = preprocess_image(cropped_sign)
-                        predictions = model.predict(preprocessed_image)
-                        detected_class = class_names[np.argmax(predictions)]
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(frame, detected_class, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-                    else:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+            frame = detect_and_classify_signs(frame)
+            frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
+
+# Clean up TensorFlow session when done (optional, if running in a persistent environment)
+sess.close()
