@@ -22,15 +22,18 @@
       - [Final Test GT](https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370/GTSRB_Final_Test_GT.zip)
     - Place the dataset in the `GTSRB/` directory.
 
-2. For simple enhancement, use the files in the `simple_enhance` notebooks:
+3. For simple enhancement, use the files in the `simple_enhance` notebooks:
     - There are two models: Resnet50 and CNN.
-3. For RRDM enhancement, use the `RRDM_enhance` folder to create and test models:
+4. For RRDM enhancement, use the `RRDM_enhance` folder to create and test models:
     - Refer to the [ESRGAN repository](https://github.com/xinntao/ESRGAN).
-4. Run the Streamlit app with just Images:
+
+5. There is a base folder which trains and tests model without enhancement
+
+6. Run the Streamlit app with just Images:
     ```sh
     streamlit run streamlit.py
     ```
-5. Run the streamlit app with `Live Video Detection and Classification`
+7. Run the streamlit app with `Live Video Detection and Classification`
     ```sh
     streamlit run video.py
     ```
